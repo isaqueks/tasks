@@ -17,8 +17,9 @@ export const Tasks = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   
-  // Formulário de filtros (separado)
-  const { register: registerFilter, watch } = useForm<TaskFilters>();
+  // Formulário de filtros (separado) - select retorna strings, não boolean
+  type FilterForm = Omit<TaskFilters, 'completed'> & { completed?: string };
+  const { register: registerFilter, watch } = useForm<FilterForm>();
   const filters = watch();
   
   // Formulário de criação/edição de tarefa
