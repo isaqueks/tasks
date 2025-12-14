@@ -8,11 +8,14 @@ import type { Task, TaskFilters, CreateTaskDto } from '../services/tasks.service
 import { companiesService } from '../services/companies.service';
 import type { Company } from '../services/companies.service';
 import { Dialog } from '@headlessui/react';
+import { LoadingBar } from '../components/LoadingBar';
+import { EditIcon, TrashIcon } from '../components/Icons';
 
 export const Tasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -26,11 +29,14 @@ export const Tasks = () => {
 
   useEffect(() => {
     loadCompanies();
+    loadTasks(true);
   }, []);
 
   useEffect(() => {
-    loadTasks();
-  }, [filters.companyId, filters.priority, filters.completed, filters.date]);
+    if (!initialLoading) {
+      loadTasks(false);
+    }
+  }, [filters.companyId, filters.priority, filters.completed, filters.date, filters.dateFilter]);
 
   const loadCompanies = async () => {
     try {
@@ -41,21 +47,41 @@ export const Tasks = () => {
     }
   };
 
-  const loadTasks = async () => {
-    setLoading(true);
+  const loadTasks = async (isInitial = false) => {
+    if (isInitial) {
+      setInitialLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     try {
+      let dateToFilter = filters.date || undefined;
+      let isBacklog = false;
+
+      if (filters.dateFilter === 'backlog') {
+        isBacklog = true;
+        dateToFilter = undefined;
+      } else if (filters.dateFilter === 'today') {
+        const today = new Date();
+        dateToFilter = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      }
+
       const filterData: TaskFilters = {
         companyId: filters.companyId || undefined,
         priority: filters.priority || undefined,
         completed: filters.completed === 'true' ? true : filters.completed === 'false' ? false : undefined,
-        date: filters.date || undefined,
+        date: dateToFilter,
+        backlog: isBacklog,
       };
       const data = await tasksService.getAll(filterData);
       setTasks(data);
     } catch (error) {
       console.error('Erro ao carregar tarefas:', error);
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setInitialLoading(false);
+      } else {
+        setIsRefreshing(false);
+      }
     }
   };
 
@@ -95,7 +121,7 @@ export const Tasks = () => {
       }
       setIsModalOpen(false);
       reset();
-      loadTasks();
+      loadTasks(false);
     } catch (error: any) {
       const message = error.response?.data?.message;
       setApiError(Array.isArray(message) ? message.join(', ') : message || 'Erro ao salvar tarefa');
@@ -108,7 +134,7 @@ export const Tasks = () => {
     }
     try {
       await tasksService.delete(id);
-      loadTasks();
+      loadTasks(false);
     } catch (error) {
       console.error('Erro ao excluir tarefa:', error);
     }
@@ -117,7 +143,7 @@ export const Tasks = () => {
   const toggleComplete = async (task: Task) => {
     try {
       await tasksService.update(task.id, { completed: !task.completed });
-      loadTasks();
+      loadTasks(false);
     } catch (error) {
       console.error('Erro ao atualizar tarefa:', error);
     }
@@ -147,11 +173,12 @@ export const Tasks = () => {
 
   return (
     <div>
+      <LoadingBar isLoading={isRefreshing} />
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Tarefas</h1>
         <button
           onClick={handleCreate}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+          className="px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors cursor-pointer"
         >
           + Nova Tarefa
         </button>
@@ -210,6 +237,20 @@ export const Tasks = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Data
             </label>
+            <select
+              {...registerFilter('dateFilter')}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">Todas</option>
+              <option value="backlog">Backlog (sem data)</option>
+              <option value="today">Hoje</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Data Específica
+            </label>
             <input
               type="date"
               {...registerFilter('date')}
@@ -221,14 +262,14 @@ export const Tasks = () => {
 
       {/* Lista de Tarefas */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {loading ? (
+        {initialLoading ? (
           <div className="px-6 py-12 text-center text-gray-500">Carregando...</div>
         ) : tasks.length === 0 ? (
           <div className="px-6 py-12 text-center text-gray-500">
             <p className="mb-4">Nenhuma tarefa encontrada.</p>
             <button
               onClick={handleCreate}
-              className="text-primary-600 hover:text-primary-700 font-medium"
+              className="text-primary-600 hover:text-primary-700 font-medium cursor-pointer"
             >
               Criar primeira tarefa
             </button>
@@ -246,7 +287,7 @@ export const Tasks = () => {
                       type="checkbox"
                       checked={task.completed}
                       onChange={() => toggleComplete(task)}
-                      className="mt-1 h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      className="mt-1 h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer"
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
@@ -277,15 +318,17 @@ export const Tasks = () => {
                   <div className="flex gap-2 ml-4">
                     <button
                       onClick={() => handleEdit(task)}
-                      className="text-primary-600 hover:text-primary-700 font-medium text-sm"
+                      className="text-primary-600 hover:text-primary-700 p-2 rounded-lg hover:bg-primary-50 transition-colors cursor-pointer"
+                      title="Editar"
                     >
-                      Editar
+                      <EditIcon size={18} />
                     </button>
                     <button
                       onClick={() => handleDelete(task.id)}
-                      className="text-red-600 hover:text-red-700 font-medium text-sm"
+                      className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                      title="Excluir"
                     >
-                      Excluir
+                      <TrashIcon size={18} />
                     </button>
                   </div>
                 </div>
@@ -397,14 +440,14 @@ export const Tasks = () => {
                 <button
                   type="button"
                   onClick={() => { setIsModalOpen(false); setApiError(null); }}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Salvando...' : 'Salvar'}
                 </button>

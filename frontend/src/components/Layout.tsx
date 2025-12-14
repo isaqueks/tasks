@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth.service';
+import { CalendarIcon, CheckIcon, BuildingIcon, LogoutIcon } from './Icons';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,9 +17,9 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   const navItems = [
-    { path: '/dashboard', label: 'Visão Semanal', icon: '📅' },
-    { path: '/tasks', label: 'Tarefas', icon: '✓' },
-    { path: '/companies', label: 'Empresas', icon: '🏢' },
+    { path: '/dashboard', label: 'Visão Semanal', icon: CalendarIcon },
+    { path: '/tasks', label: 'Tarefas', icon: CheckIcon },
+    { path: '/companies', label: 'Empresas', icon: BuildingIcon },
   ];
 
   return (
@@ -34,6 +35,7 @@ export const Layout = ({ children }: LayoutProps) => {
           <nav className="mt-6">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
+              const IconComponent = item.icon;
               return (
                 <Link
                   key={item.path}
@@ -44,7 +46,9 @@ export const Layout = ({ children }: LayoutProps) => {
                       : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <span className="mr-3">{item.icon}</span>
+                  <span className="mr-3">
+                    <IconComponent size={20} />
+                  </span>
                   {item.label}
                 </Link>
               );
@@ -54,8 +58,11 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-200">
             <button
               onClick={handleLogout}
-              className="w-full text-left px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+              className="w-full flex items-center px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
             >
+              <span className="mr-3">
+                <LogoutIcon size={20} />
+              </span>
               Sair
             </button>
           </div>

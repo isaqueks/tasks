@@ -5,27 +5,33 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { tasksService, observationsService, Priority } from '../services/tasks.service';
 import type { Task, Observation, CreateTaskDto } from '../services/tasks.service';
+import { LoadingBar } from '../components/LoadingBar';
 
 export const TaskDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [task, setTask] = useState<Task | null>(null);
   const [observations, setObservations] = useState<Observation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<CreateTaskDto>();
   const { register: registerObs, handleSubmit: handleSubmitObs, reset: resetObs, formState: { isSubmitting: isSubmittingObs } } = useForm<{ content: string }>();
 
   useEffect(() => {
     if (id) {
-      loadTask();
+      loadTask(true);
       loadObservations();
     }
   }, [id]);
 
-  const loadTask = async () => {
+  const loadTask = async (isInitial = false) => {
     if (!id) return;
-    setLoading(true);
+    if (isInitial) {
+      setInitialLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     try {
       const data = await tasksService.getById(id);
       setTask(data);
@@ -40,7 +46,11 @@ export const TaskDetails = () => {
       console.error('Erro ao carregar tarefa:', error);
       navigate('/tasks');
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setInitialLoading(false);
+      } else {
+        setIsRefreshing(false);
+      }
     }
   };
 
@@ -59,7 +69,7 @@ export const TaskDetails = () => {
     try {
       await tasksService.update(id, data);
       setIsEditing(false);
-      loadTask();
+      loadTask(false);
     } catch (error) {
       console.error('Erro ao atualizar tarefa:', error);
     }
@@ -93,7 +103,7 @@ export const TaskDetails = () => {
     if (!task || !id) return;
     try {
       await tasksService.update(id, { completed: !task.completed });
-      loadTask();
+      loadTask(false);
     } catch (error) {
       console.error('Erro ao atualizar tarefa:', error);
     }
@@ -134,7 +144,7 @@ export const TaskDetails = () => {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-gray-500">Carregando...</div>
@@ -148,10 +158,11 @@ export const TaskDetails = () => {
 
   return (
     <div>
+      <LoadingBar isLoading={isRefreshing} />
       <div className="mb-6">
         <Link
           to="/tasks"
-          className="text-primary-600 hover:text-primary-700 font-medium text-sm mb-4 inline-block"
+          className="text-primary-600 hover:text-primary-700 font-medium text-sm mb-4 inline-block cursor-pointer"
         >
           ← Voltar para Tarefas
         </Link>
@@ -162,13 +173,13 @@ export const TaskDetails = () => {
               <>
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 text-primary-600 bg-primary-50 rounded-lg font-medium hover:bg-primary-100"
+                  className="px-4 py-2 text-primary-600 bg-primary-50 rounded-lg font-medium hover:bg-primary-100 cursor-pointer"
                 >
                   Editar
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="px-4 py-2 text-red-600 bg-red-50 rounded-lg font-medium hover:bg-red-100"
+                  className="px-4 py-2 text-red-600 bg-red-50 rounded-lg font-medium hover:bg-red-100 cursor-pointer"
                 >
                   Excluir
                 </button>
@@ -234,7 +245,7 @@ export const TaskDetails = () => {
                 type="checkbox"
                 checked={task.completed}
                 onChange={toggleComplete}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer"
               />
               <label className="text-sm font-medium text-gray-700">
                 Tarefa concluída
@@ -242,20 +253,20 @@ export const TaskDetails = () => {
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-              >
-                {isSubmitting ? 'Salvando...' : 'Salvar'}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Salvando...' : 'Salvar'}
+                </button>
             </div>
           </form>
         ) : (
@@ -266,7 +277,7 @@ export const TaskDetails = () => {
                   type="checkbox"
                   checked={task.completed}
                   onChange={toggleComplete}
-                  className="mt-1 h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="mt-1 h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer"
                 />
                 <div className="flex-1">
                   <h2 className={`text-xl font-bold mb-2 ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
@@ -316,7 +327,7 @@ export const TaskDetails = () => {
             <button
               type="submit"
               disabled={isSubmittingObs}
-              className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 self-start"
+              className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 self-start cursor-pointer disabled:cursor-not-allowed"
             >
               {isSubmittingObs ? 'Adicionando...' : 'Adicionar'}
             </button>
@@ -338,7 +349,7 @@ export const TaskDetails = () => {
                   </div>
                   <button
                     onClick={() => handleDeleteObservation(obs.id)}
-                    className="text-red-600 hover:text-red-700 text-sm ml-4"
+                    className="text-red-600 hover:text-red-700 text-sm ml-4 cursor-pointer"
                   >
                     Excluir
                   </button>

@@ -26,7 +26,9 @@ export class TasksService {
 
     const task = this.taskRepository.create({
       ...createTaskDto,
-      date: createTaskDto.date ? new Date(createTaskDto.date) : null,
+      // Keep date as string "YYYY-MM-DD" - PostgreSQL date column handles it correctly
+      // Using new Date() causes timezone issues
+      date: createTaskDto.date || null,
     });
     return this.taskRepository.save(task);
   }
@@ -36,6 +38,7 @@ export class TasksService {
     priority?: Priority;
     completed?: boolean;
     date?: string;
+    backlog?: boolean;
   }) {
     const query = this.taskRepository
       .createQueryBuilder('task')
@@ -63,10 +66,14 @@ export class TasksService {
       });
     }
 
-    if (filters?.date) {
-      const date = new Date(filters.date);
-      const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+    if (filters?.backlog) {
+      query.andWhere('task.date IS NULL');
+    } else if (filters?.date) {
+      const date = new Date(filters.date + 'T12:00:00');
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
       query.andWhere('task.date BETWEEN :start AND :end', {
         start: startOfDay,
         end: endOfDay,
@@ -121,7 +128,19 @@ export class TasksService {
         if (!task.date) {
           tasksByDay.backlog.push(task);
         } else {
-          const taskDate = new Date(task.date);
+          // task.date pode ser string "YYYY-MM-DD" ou Date
+          // Precisamos parsear corretamente para evitar problemas de timezone
+          let taskDate: Date;
+          if (typeof task.date === 'string') {
+            // Parsear string "YYYY-MM-DD" como data local (adicionar T12:00 para evitar timezone issues)
+            taskDate = new Date(task.date + 'T12:00:00');
+          } else {
+            // Se já é Date, usar diretamente
+            taskDate = new Date(task.date.getTime());
+            // Ajustar para meio-dia local para evitar problemas de timezone
+            taskDate.setHours(12, 0, 0, 0);
+          }
+          
           const dayOfWeek = taskDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
           // Convert to Monday = 0, Tuesday = 1, ..., Sunday = 6
           const mondayBasedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -168,10 +187,20 @@ export class TasksService {
 
   async update(id: string, updateTaskDto: UpdateTaskDto, userId: string) {
     const task = await this.findOne(id, userId);
-    Object.assign(task, {
-      ...updateTaskDto,
-      date: updateTaskDto.date ? new Date(updateTaskDto.date) : task.date,
-    });
+    const updateData: any = { ...updateTaskDto };
+    
+    // Handle date explicitly: if date is provided and not empty, keep it as string
+    // PostgreSQL date column will handle the string "YYYY-MM-DD" correctly
+    // Using new Date() causes timezone issues
+    if ('date' in updateTaskDto) {
+      const dateValue = updateTaskDto.date;
+      if (dateValue === null || dateValue === undefined || dateValue === '') {
+        updateData.date = null;
+      }
+      // else: keep the string as-is, TypeORM/PostgreSQL will handle it
+    }
+    
+    Object.assign(task, updateData);
     return this.taskRepository.save(task);
   }
 

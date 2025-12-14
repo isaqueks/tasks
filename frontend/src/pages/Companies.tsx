@@ -3,28 +3,38 @@ import { useForm } from 'react-hook-form';
 import { companiesService } from '../services/companies.service';
 import type { Company, CreateCompanyDto } from '../services/companies.service';
 import { Dialog } from '@headlessui/react';
+import { LoadingBar } from '../components/LoadingBar';
 
 export const Companies = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const { register, handleSubmit, reset, formState: { isSubmitting, errors } } = useForm<CreateCompanyDto>();
 
   useEffect(() => {
-    loadCompanies();
+    loadCompanies(true);
   }, []);
 
-  const loadCompanies = async () => {
-    setLoading(true);
+  const loadCompanies = async (isInitial = false) => {
+    if (isInitial) {
+      setInitialLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     try {
       const data = await companiesService.getAll();
       setCompanies(data);
     } catch (error) {
       console.error('Erro ao carregar empresas:', error);
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setInitialLoading(false);
+      } else {
+        setIsRefreshing(false);
+      }
     }
   };
 
@@ -55,7 +65,7 @@ export const Companies = () => {
       }
       setIsModalOpen(false);
       reset();
-      loadCompanies();
+      loadCompanies(false);
     } catch (error: any) {
       const message = error.response?.data?.message;
       setApiError(Array.isArray(message) ? message.join(', ') : message || 'Erro ao salvar empresa');
@@ -68,13 +78,13 @@ export const Companies = () => {
     }
     try {
       await companiesService.delete(id);
-      loadCompanies();
+      loadCompanies(false);
     } catch (error) {
       console.error('Erro ao excluir empresa:', error);
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-gray-500">Carregando...</div>
@@ -84,11 +94,12 @@ export const Companies = () => {
 
   return (
     <div>
+      <LoadingBar isLoading={isRefreshing} />
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Empresas</h1>
         <button
           onClick={handleCreate}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+          className="px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors cursor-pointer"
         >
           + Nova Empresa
         </button>
@@ -100,7 +111,7 @@ export const Companies = () => {
             <p className="mb-4">Nenhuma empresa cadastrada.</p>
             <button
               onClick={handleCreate}
-              className="text-primary-600 hover:text-primary-700 font-medium"
+              className="text-primary-600 hover:text-primary-700 font-medium cursor-pointer"
             >
               Criar primeira empresa
             </button>
@@ -129,13 +140,13 @@ export const Companies = () => {
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => handleEdit(company)}
-                        className="text-primary-600 hover:text-primary-700 font-medium text-sm"
+                        className="text-primary-600 hover:text-primary-700 font-medium text-sm cursor-pointer"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => handleDelete(company.id)}
-                        className="text-red-600 hover:text-red-700 font-medium text-sm"
+                        className="text-red-600 hover:text-red-700 font-medium text-sm cursor-pointer"
                       >
                         Excluir
                       </button>
@@ -194,14 +205,14 @@ export const Companies = () => {
                 <button
                   type="button"
                   onClick={() => { setIsModalOpen(false); setApiError(null); }}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Salvando...' : 'Salvar'}
                 </button>

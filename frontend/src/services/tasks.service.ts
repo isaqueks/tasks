@@ -64,6 +64,7 @@ export interface TaskFilters {
   priority?: Priority;
   completed?: boolean;
   date?: string;
+  backlog?: boolean;
 }
 
 export const tasksService = {
@@ -72,7 +73,8 @@ export const tasksService = {
     if (filters?.companyId) params.append('companyId', filters.companyId);
     if (filters?.priority) params.append('priority', filters.priority);
     if (filters?.completed !== undefined) params.append('completed', String(filters.completed));
-    if (filters?.date) params.append('date', filters.date);
+    if (filters?.backlog) params.append('backlog', 'true');
+    else if (filters?.date) params.append('date', filters.date);
 
     const response = await api.get<Task[]>(`/tasks?${params.toString()}`);
     return response.data;
@@ -94,8 +96,13 @@ export const tasksService = {
     return response.data;
   },
 
-  update: async (id: string, data: Partial<CreateTaskDto> & { completed?: boolean }): Promise<Task> => {
-    const response = await api.patch<Task>(`/tasks/${id}`, data);
+  update: async (id: string, data: Partial<CreateTaskDto> & { completed?: boolean; date?: string | null }): Promise<Task> => {
+    // Convert empty string to null for backlog
+    const updateData = { ...data };
+    if ('date' in updateData && updateData.date === '') {
+      updateData.date = null;
+    }
+    const response = await api.patch<Task>(`/tasks/${id}`, updateData);
     return response.data;
   },
 

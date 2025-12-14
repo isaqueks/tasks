@@ -33,12 +33,14 @@ export class TasksController {
     @Query('priority') priority?: Priority,
     @Query('completed') completed?: string,
     @Query('date') date?: string,
+    @Query('backlog') backlog?: string,
   ) {
     return this.tasksService.findAll(req.user.userId, {
       companyId,
       priority,
       completed: completed === 'true' ? true : completed === 'false' ? false : undefined,
       date,
+      backlog: backlog === 'true',
     });
   }
 
