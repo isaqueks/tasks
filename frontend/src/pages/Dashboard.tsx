@@ -109,7 +109,7 @@ export const Dashboard = () => {
     e.stopPropagation();
   };
 
-  const handleDrop = async (e: React.DragEvent, targetDay: string) => {
+  const handleDrop = async (e: React.DragEvent, _targetDay: string) => {
     e.preventDefault();
     e.stopPropagation();
     if (!draggedTask || !dragOverDay) return;

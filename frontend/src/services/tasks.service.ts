@@ -1,10 +1,12 @@
 import api from './api';
 
-export enum Priority {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-}
+export const Priority = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+} as const;
+
+export type Priority = (typeof Priority)[keyof typeof Priority];
 
 export interface Task {
   id: string;
@@ -62,9 +64,10 @@ export interface WeeklyViewData {
 export interface TaskFilters {
   companyId?: string;
   priority?: Priority;
-  completed?: boolean;
+  completed?: string;
   date?: string;
   backlog?: boolean;
+  dateFilter?: string;
 }
 
 export const tasksService = {
@@ -72,7 +75,7 @@ export const tasksService = {
     const params = new URLSearchParams();
     if (filters?.companyId) params.append('companyId', filters.companyId);
     if (filters?.priority) params.append('priority', filters.priority);
-    if (filters?.completed !== undefined) params.append('completed', String(filters.completed));
+    if (filters?.completed) params.append('completed', filters.completed);
     if (filters?.backlog) params.append('backlog', 'true');
     else if (filters?.date) params.append('date', filters.date);
 
@@ -98,7 +101,7 @@ export const tasksService = {
 
   update: async (id: string, data: Partial<CreateTaskDto> & { completed?: boolean; date?: string | null }): Promise<Task> => {
     // Convert empty string to null for backlog
-    const updateData = { ...data };
+    const updateData: Record<string, unknown> = { ...data };
     if ('date' in updateData && updateData.date === '') {
       updateData.date = null;
     }

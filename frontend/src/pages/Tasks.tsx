@@ -68,7 +68,7 @@ export const Tasks = () => {
       const filterData: TaskFilters = {
         companyId: filters.companyId || undefined,
         priority: filters.priority || undefined,
-        completed: filters.completed === 'true' ? true : filters.completed === 'false' ? false : undefined,
+        completed: filters.completed || undefined,
         date: dateToFilter,
         backlog: isBacklog,
       };
